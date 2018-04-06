@@ -30,10 +30,14 @@
       ]
     }
   ],
+  "icons": {
+    "32": "icons/icon-v2.svg"
+  },
   "web_accessible_resources": [
     "blank.html",
     "icons/cancel.svg",
     "icons/download.svg",
+    "icons/copy.svg",
     "icons/icon-256.png",
     "icons/back.svg",
     "icons/back-highlight.svg",

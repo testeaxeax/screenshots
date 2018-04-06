@@ -1,33 +1,33 @@
 const config = require("./config").getProperties();
 const db = require("./db");
 const errors = require("./errors");
-const { request } = require("./helpers");
+const fetch = require("node-fetch");
 const crypto = require("crypto");
 const mozlog = require("./logging").mozlog("users");
 const abTests = require("./ab-tests");
 
 function hashMatches(hash, secret) {
-  let parts = hash.split(/:/g);
+  const parts = hash.split(/:/g);
   if (parts[0] !== "shaHmac") {
     throw new Error("Unknown type of hash");
   }
-  if (parts.length != 3) {
+  if (parts.length !== 3) {
     throw new Error("Bad hash format, should be type:nonce:data");
   }
-  let expected = createHash(secret, parts[1]);
-  return expected == hash;
+  const expected = createHash(secret, parts[1]);
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(hash));
 }
 
 function createHash(secret, nonce) {
   if (!nonce) {
     nonce = createNonce();
   }
-  if (nonce.search(/^[0-9a-zA-Z]+$/) == -1) {
+  if (nonce.search(/^[0-9a-zA-Z]+$/) === -1) {
     throw new Error("Bad nonce");
   }
-  let hmac = crypto.createHmac("sha256", nonce);
+  const hmac = crypto.createHmac("sha256", nonce);
   hmac.update(secret);
-  let digest = hmac.digest("hex");
+  const digest = hmac.digest("hex");
   return `shaHmac:${nonce}:${digest}`;
 }
 
@@ -37,14 +37,14 @@ function createNonce() {
 
 /** Parses the FORCE_AB_TESTS config */
 function getForceAbTests() {
-  let val = config.forceAbTests || "";
+  const val = config.forceAbTests || "";
   if (!val) {
     return null;
   }
-  let parts = val.split(/\s/g);
-  let result = {};
-  for (let part of parts) {
-    let equals = part.split("=");
+  const parts = val.split(/\s/g);
+  const result = {};
+  for (const part of parts) {
+    const equals = part.split("=");
     result[equals[0]] = equals[1];
   }
   return result;
@@ -100,13 +100,13 @@ exports.registerLogin = function(deviceId, data, canUpdate) {
   if (!(data && data.secret)) {
     throw new Error("No data or data.secret given");
   }
-  let secretHashed = createHash(data.secret);
+  const secretHashed = createHash(data.secret);
   return db.insert(
     `INSERT INTO devices (id, secret_hashed)
      VALUES ($1, $2)`,
     [deviceId, secretHashed || null]
   ).then((inserted) => {
-    let userAbTests = abTests.updateAbTests({}, getForceAbTests());
+    const userAbTests = abTests.updateAbTests({}, getForceAbTests());
     if (inserted) {
       return userAbTests;
     }
@@ -148,24 +148,27 @@ exports.checkState = function(deviceId, state) {
   ).then(rowCount => !!rowCount);
 };
 
+
 exports.tradeCode = function(code) {
-  let oAuthURI = `${config.fxa.oAuthServer}/token`;
-  return request('POST', oAuthURI, {
-    payload: JSON.stringify({
+  const oAuthURI = `${config.fxa.oAuthServer}/token`;
+  return fetch(oAuthURI, {
+    method: "POST",
+    body: JSON.stringify({
       code,
       client_id: config.fxa.clientId,
       client_secret: config.fxa.clientSecret
     }),
     headers: {
-      'content-type': 'application/json'
-    },
-    json: true
-  }).then(([res, body]) => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return body;
+      "content-type": "application/json"
     }
-    mozlog.warn('fxa-tradecode-failed', {status: res.statusCode});
+  }).catch(err => {
+    // error with the /token endpoint
+    mozlog.warn("fxa-tradecode-failed", {err});
     throw errors.badToken();
+  }).then(res => {
+    return res.json()
+  }).then(res => {
+    return res;
   });
 };
 
@@ -179,18 +182,19 @@ exports.disconnectDevice = function(deviceId) {
 };
 
 exports.fetchProfileData = function(accessToken) {
-  let userInfoEndpoint = `${config.fxa.profileServer}/profile`;
-  return request('GET', userInfoEndpoint, {
+  const userInfoEndpoint = `${config.fxa.profileServer}/profile`;
+  return fetch(userInfoEndpoint, {
+    method: "GET",
     headers: {
       authorization: `Bearer ${accessToken}`
     },
-    json: true
-  }).then(([res, body]) => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return body;
-    }
+  }).then(res => {
+    return res.json()
+  }).then(res => {
+    return res;
+  }).catch(err => {
     throw errors.badProfile();
-  });
+  })
 };
 
 exports.saveProfileData = function(accountId, avatarUrl, nickname, email) {
@@ -203,18 +207,19 @@ exports.saveProfileData = function(accountId, avatarUrl, nickname, email) {
 }
 
 exports.getAccountId = function(accessToken) {
-  let profileURI = `${config.fxa.profileServer}/uid`;
-  return request('GET', profileURI, {
+  const profileURI = `${config.fxa.profileServer}/uid`;
+  return fetch(profileURI, {
+    method: "GET",
     headers: {
       authorization: `Bearer ${accessToken}`
     },
-    json: true
-  }).then(([res, body]) => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return body;
-    }
+  }).then(res => {
+    return res.json()
+  }).then(res => {
+    return res;
+  }).catch(err => {
     throw errors.badProfile();
-  });
+  })
 };
 
 exports.registerAccount = function(deviceId, accountId, accessToken) {
@@ -245,5 +250,6 @@ exports.retrieveAccount = function(deviceId) {
     if (rows[0].accountid) {
       return rows[0].accountid;
     }
+    return null;
   });
 }

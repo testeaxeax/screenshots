@@ -1,4 +1,5 @@
 const React = require("react");
+const PropTypes = require("prop-types");
 const reactruntime = require("../../reactruntime");
 const classnames = require("classnames");
 const sendEvent = require("../../browser-send-event.js");
@@ -39,6 +40,12 @@ class Head extends React.Component {
 
 }
 
+Head.propTypes = {
+  backend: PropTypes.string,
+  staticLink: PropTypes.func,
+  title: PropTypes.string
+};
+
 class Body extends React.Component {
   onClickMyShots() {
     sendEvent("goto-myshots", "homepage", {useBeacon: true});
@@ -58,7 +65,7 @@ class Body extends React.Component {
       return null;
     }
     return (
-      <a href="https://www.mozilla.org/firefox/new/?utm_source=screenshots.firefox.com&utm_medium=referral&utm_campaign=screenshots-acquisition&utm-content=from-home" className="button primary download-firefox" onClick={ this.onClickInstallFirefox.bind(this) }>
+      <a href="https://www.mozilla.org/firefox/new/?utm_source=screenshots.firefox.com&utm_medium=referral&utm_campaign=screenshots-acquisition&utm_content=from-home" className="button primary download-firefox" onClick={ this.onClickInstallFirefox.bind(this) }>
         <div className="button-icon">
           <div className="button-icon-badge"></div>
         </div>
@@ -187,6 +194,12 @@ class Body extends React.Component {
   }
 
 }
+
+Body.propTypes = {
+  firefoxVersion: PropTypes.string,
+  isFirefox: PropTypes.bool,
+  showMyShots: PropTypes.bool
+};
 
 exports.HeadFactory = React.createFactory(Head);
 exports.BodyFactory = React.createFactory(Body);
